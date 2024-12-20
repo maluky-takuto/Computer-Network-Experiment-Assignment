@@ -14,6 +14,10 @@ public class TCP_Sender extends TCP_Sender_ADT {
     private TCP_PACKET tcpPack;	//待发送的TCP数据报
     private volatile int flag = 0;
 
+    //添加2个变量，准备使用计时器
+    private UDT_RetransTask retrans_task;
+    private UDT_Timer timer;
+
     /*构造函数*/
     public TCP_Sender() {
         super();	//调用超类构造函数
@@ -32,7 +36,10 @@ public class TCP_Sender extends TCP_Sender_ADT {
         tcpH.setTh_sum(CheckSum.computeChkSum(tcpPack));
         tcpPack.setTcpH(tcpH);
 
-        //发送TCP数据报
+        //发送TCP数据报，3.0，添加计时器
+        retrans_task=new UDT_RetransTask(client,tcpPack);
+        timer=new UDT_Timer();
+        timer.schedule(retrans_task,2000,2000);
         udt_send(tcpPack);
         flag = 0;
 
@@ -45,7 +52,7 @@ public class TCP_Sender extends TCP_Sender_ADT {
     //不可靠发送：将打包好的TCP数据报通过不可靠传输信道发送；仅需修改错误标志
     public void udt_send(TCP_PACKET stcpPack) {
         //设置错误控制标志
-        tcpH.setTh_eflag((byte)1);  //eFlag =1,只出错
+        tcpH.setTh_eflag((byte)4);  //eFlag =4,错误和丢失
         //System.out.println("to send: "+stcpPack.getTcpH().getTh_seq());
         //发送数据报
         client.send(stcpPack);
@@ -63,24 +70,28 @@ public class TCP_Sender extends TCP_Sender_ADT {
                 System.out.println("Clear: "+tcpPack.getTcpH().getTh_seq());
                 flag = 1;
                 //break;
-            }else{
+            }/*else{
                 System.out.println("Retransmit: "+tcpPack.getTcpH().getTh_seq());
                 udt_send(tcpPack);
                 flag = 0;
-            }
+            }*/
         }
     }
 
     @Override
     //接收到ACK报文：检查校验和，将确认号插入ack队列;NACK的确认号为－1；不需要修改
     public void recv(TCP_PACKET recvPack) {
-        System.out.println("Receive ACK Number： "+ recvPack.getTcpH().getTh_ack());
-        ackQueue.add(recvPack.getTcpH().getTh_ack());
-        System.out.println();
-
+        if(CheckSum.computeChkSum(recvPack) == recvPack.getTcpH().getTh_sum()){
+            System.out.println("Receive ACK Number： "+ recvPack.getTcpH().getTh_ack());
+            ackQueue.add(recvPack.getTcpH().getTh_ack());
+            System.out.println();
+        }else{
+            System.out.println("Receive wrong ACK:" + recvPack.getTcpH().getTh_ack());
+            this.ackQueue.add(-1);
+            System.out.println();
+        }
         //处理ACK报文
         waitACK();
-
     }
 
 }
