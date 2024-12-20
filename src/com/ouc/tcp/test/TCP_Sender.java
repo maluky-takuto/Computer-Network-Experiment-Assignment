@@ -39,7 +39,7 @@ public class TCP_Sender extends TCP_Sender_ADT {
         //发送TCP数据报，3.0，添加计时器
         retrans_task=new UDT_RetransTask(client,tcpPack);
         timer=new UDT_Timer();
-        timer.schedule(retrans_task,2000,2000);
+        timer.schedule(retrans_task,2000,3000);
         udt_send(tcpPack);
         flag = 0;
 
@@ -68,6 +68,7 @@ public class TCP_Sender extends TCP_Sender_ADT {
             // System.out.println("CurrentAck: "+currentAck);
             if (currentAck == tcpPack.getTcpH().getTh_seq()){
                 System.out.println("Clear: "+tcpPack.getTcpH().getTh_seq());
+                timer.cancel();
                 flag = 1;
                 //break;
             }/*else{
@@ -81,15 +82,9 @@ public class TCP_Sender extends TCP_Sender_ADT {
     @Override
     //接收到ACK报文：检查校验和，将确认号插入ack队列;NACK的确认号为－1；不需要修改
     public void recv(TCP_PACKET recvPack) {
-        if(CheckSum.computeChkSum(recvPack) == recvPack.getTcpH().getTh_sum()){
-            System.out.println("Receive ACK Number： "+ recvPack.getTcpH().getTh_ack());
-            ackQueue.add(recvPack.getTcpH().getTh_ack());
-            System.out.println();
-        }else{
-            System.out.println("Receive wrong ACK:" + recvPack.getTcpH().getTh_ack());
-            this.ackQueue.add(-1);
-            System.out.println();
-        }
+        System.out.println("Receive ACK Number： "+ recvPack.getTcpH().getTh_ack());
+        ackQueue.add(recvPack.getTcpH().getTh_ack());
+        System.out.println();
         //处理ACK报文
         waitACK();
     }
