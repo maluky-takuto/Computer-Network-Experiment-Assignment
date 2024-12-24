@@ -18,6 +18,9 @@ public class TCP_Sender extends TCP_Sender_ADT {
     private UDT_RetransTask retrans_task;
     private UDT_Timer timer;
 
+    //准备滑动窗口
+    private Sender_Window SenderWindow = new Sender_Window(this.client);
+
     /*构造函数*/
     public TCP_Sender() {
         super();	//调用超类构造函数
@@ -37,12 +40,24 @@ public class TCP_Sender extends TCP_Sender_ADT {
         tcpPack.setTcpH(tcpH);
 
         //发送TCP数据报，3.0，添加计时器
-        retrans_task=new UDT_RetransTask(client,tcpPack);
-        timer=new UDT_Timer();
-        timer.schedule(retrans_task,2000,3000);
-        udt_send(tcpPack);
-        flag = 0;
+//        retrans_task=new UDT_RetransTask(client,tcpPack);
+//        timer=new UDT_Timer();
+//        timer.schedule(retrans_task,2000,3000);
+//        udt_send(tcpPack);
+//        flag = 0;
 
+
+        //发送TCP数据报,SR版，用senderwindow托管
+        //如果满了
+        if(this.SenderWindow.isFull()){
+            System.out.println("**sender**window**is**full**");
+        }else{
+            //没满就发包，先将包加入窗口
+            this.SenderWindow.TakePacket(this.tcpPack);
+            udt_send(tcpPack);
+        }
+
+        flag = 0;
         //等待ACK报文
         //waitACK();
         while (flag==0);
@@ -52,7 +67,7 @@ public class TCP_Sender extends TCP_Sender_ADT {
     //不可靠发送：将打包好的TCP数据报通过不可靠传输信道发送；仅需修改错误标志
     public void udt_send(TCP_PACKET stcpPack) {
         //设置错误控制标志
-        tcpH.setTh_eflag((byte)4);  //eFlag =4,错误和丢失
+        tcpH.setTh_eflag((byte)0);  //eFlag =4,错误和丢失
         //System.out.println("to send: "+stcpPack.getTcpH().getTh_seq());
         //发送数据报
         client.send(stcpPack);
@@ -63,20 +78,23 @@ public class TCP_Sender extends TCP_Sender_ADT {
     public void waitACK() {
         //循环检查ackQueue
         //循环检查确认号对列中是否有新收到的ACK
-        if(!ackQueue.isEmpty()){
-            int currentAck=ackQueue.poll();
+        if(!ackQueue.isEmpty()) {
+            int currentAck = ackQueue.poll();//从ack队列中拿出来
             // System.out.println("CurrentAck: "+currentAck);
-            if (currentAck == tcpPack.getTcpH().getTh_seq()){
-                System.out.println("Clear: "+tcpPack.getTcpH().getTh_seq());
-                timer.cancel();
+
+            if (currentAck == tcpPack.getTcpH().getTh_seq()) {//说明收到ack包了
+                this.SenderWindow.recvAck(currentAck);//交给窗口处理
+//                System.out.println("Clear: " + tcpPack.getTcpH().getTh_seq());
+                //timer.cancel();
                 flag = 1;
                 //break;
-            }/*else{
-                System.out.println("Retransmit: "+tcpPack.getTcpH().getTh_seq());
+            } else {//重发并再次等待ack报文
+                System.out.println("Retransmit: " + tcpPack.getTcpH().getTh_seq());
                 udt_send(tcpPack);
                 flag = 0;
-            }*/
+            }
         }
+
     }
 
     @Override
