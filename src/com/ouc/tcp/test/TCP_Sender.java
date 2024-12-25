@@ -12,11 +12,10 @@ import com.ouc.tcp.tool.TCP_TOOL;
 public class TCP_Sender extends TCP_Sender_ADT {
 
     private TCP_PACKET tcpPack;	//待发送的TCP数据报
-    private volatile int flag = 0;
-
+    private volatile int flag = 4;
     //添加2个变量，准备使用计时器
-    private UDT_RetransTask retrans_task;
-    private UDT_Timer timer;
+//    private UDT_RetransTask retrans_task;
+//    private UDT_Timer timer;
 
     //准备滑动窗口
     private Sender_Window SenderWindow = new Sender_Window(this.client);
@@ -25,11 +24,14 @@ public class TCP_Sender extends TCP_Sender_ADT {
     public TCP_Sender() {
         super();	//调用超类构造函数
         super.initTCP_Sender(this);		//初始化TCP发送端
+        this.SenderWindow.init();
     }
 
     @Override
     //可靠发送（应用层调用）：封装应用层数据，产生TCP数据报；需要修改
     public void rdt_send(int dataIndex, int[] appData) {
+
+
 
         //生成TCP数据报（设置序号和数据字段/校验和),注意打包的顺序
         tcpH.setTh_seq(dataIndex * appData.length + 1);//包序号设置为字节流号：
@@ -46,54 +48,59 @@ public class TCP_Sender extends TCP_Sender_ADT {
 //        udt_send(tcpPack);
 //        flag = 0;
 
-
         //发送TCP数据报,SR版，用senderwindow托管
-        //如果满了
-        if(this.SenderWindow.isFull()){
-            System.out.println("**sender**window**is**full**");
-        }else{
-            //没满就发包，先将包加入窗口
-            this.SenderWindow.TakePacket(this.tcpPack);
-            udt_send(tcpPack);
-        }
+        //如果窗口不能动
 
-        flag = 0;
+        if(this.SenderWindow.isFull()){//满了
+            System.out.println("**sender**window**is**wait**");
+            flag = 0;
+        }
         //等待ACK报文
         //waitACK();
         while (flag==0);
+
+        //发包，先将包加入窗口
+        try {
+            this.SenderWindow.TakePacket(this.tcpPack.clone());
+        } catch (CloneNotSupportedException e) {
+            throw new RuntimeException(e);
+        }
+        udt_send(tcpPack);
     }
 
     @Override
     //不可靠发送：将打包好的TCP数据报通过不可靠传输信道发送；仅需修改错误标志
     public void udt_send(TCP_PACKET stcpPack) {
         //设置错误控制标志
-        tcpH.setTh_eflag((byte)0);  //eFlag =4,错误和丢失
+        tcpH.setTh_eflag((byte)7);  //eFlag =4,错误和丢失
         //System.out.println("to send: "+stcpPack.getTcpH().getTh_seq());
         //发送数据报
         client.send(stcpPack);
     }
 
-    @Override
-    //需要修改
-    public void waitACK() {
-        //循环检查ackQueue
-        //循环检查确认号对列中是否有新收到的ACK
-        if(!ackQueue.isEmpty()) {
-            int currentAck = ackQueue.poll();//从ack队列中拿出来
-            // System.out.println("CurrentAck: "+currentAck);
 
-            if (currentAck == tcpPack.getTcpH().getTh_seq()) {//说明收到ack包了
-                this.SenderWindow.recvAck(currentAck);//交给窗口处理
-//                System.out.println("Clear: " + tcpPack.getTcpH().getTh_seq());
-                //timer.cancel();
-                flag = 1;
-                //break;
-            } else {//重发并再次等待ack报文
-                System.out.println("Retransmit: " + tcpPack.getTcpH().getTh_seq());
-                udt_send(tcpPack);
-                flag = 0;
+    //需要修改
+    public void waitACK(TCP_PACKET packet) {
+        int currentAck=packet.getTcpH().getTh_ack();
+        /*int currentAck = ackQueue.poll();//从ack队列中拿出来*/
+        // System.out.println("CurrentAck: "+currentAck);
+
+        if (CheckSum.computeChkSum(packet)==packet.getTcpH().getTh_sum()) {//说明收到ack包了
+            this.SenderWindow.recvAck(currentAck);//交给窗口处理
+            if(!this.SenderWindow.isFull()) {
+                flag=1;//窗口不满，就可以发新包
+            }else{
+                flag=0;
             }
-        }
+//                System.out.println("Clear: " + tcpPack.getTcpH().getTh_seq());
+            //timer.cancel();
+            //break;
+        } /*else {//重发并再次等待ack报文
+            System.out.println("Retransmit: " + tcpPack.getTcpH().getTh_seq());
+            udt_send(tcpPack);
+
+            //flag = 0;
+        }*/
 
     }
 
@@ -104,7 +111,12 @@ public class TCP_Sender extends TCP_Sender_ADT {
         ackQueue.add(recvPack.getTcpH().getTh_ack());
         System.out.println();
         //处理ACK报文
-        waitACK();
+        waitACK(recvPack);
+    }
+
+    @Override
+    public void waitACK() {
+
     }
 
 }
