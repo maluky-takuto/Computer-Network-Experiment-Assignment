@@ -6,7 +6,9 @@
     <file url="file://$PROJECT_DIR$/doc/com/ouc/tcp/client/TCP_Receiver_ADT.html" charset="GBK" />
     <file url="file://$PROJECT_DIR$/doc/com/ouc/tcp/message/TCP_PACKET.html" charset="GBK" />
     <file url="file://$PROJECT_DIR$/doc/constant-values.html" charset="GBK" />
-    <file url="file://$PROJECT_DIR$/src/com/ouc/tcp/test/TestRun.java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/src/com/ouc/tcp/test/TCP_Receiver.java" charset="GBK" />
+    <file url="file://$PROJECT_DIR$/src/com/ouc/tcp/test/TCP_Sender.java" charset="GBK" />
+    <file url="file://$PROJECT_DIR$/src/com/ouc/tcp/test/TestRun.java" charset="GBK" />
     <file url="PROJECT" charset="GBK" />
   </component>
 </project>

@@ -6,6 +6,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Hashtable;
 
 import com.ouc.tcp.client.TCP_Receiver_ADT;
 import com.ouc.tcp.message.*;
@@ -13,45 +14,49 @@ import com.ouc.tcp.tool.TCP_TOOL;
 
 public class TCP_Receiver extends TCP_Receiver_ADT {
 
-    private TCP_PACKET ackPack;	//å›å¤çš„ACKæŠ¥æ–‡æ®µ
-    //int sequence=1;//ç”¨äºè®°å½•å½“å‰å¾…æ¥æ”¶çš„åŒ…åºå·ï¼Œæ³¨æ„åŒ…åºå·ä¸å®Œå…¨æ˜¯
-    //int last_seq=0;//ä¸Šä¸ªåŒ…çš„sequence
+    private TCP_PACKET ackPack;	//»Ø¸´µÄACK±¨ÎÄ¶Î
+    //int sequence=1;//ÓÃÓÚ¼ÇÂ¼µ±Ç°´ı½ÓÊÕµÄ°üĞòºÅ£¬×¢Òâ°üĞòºÅ²»ÍêÈ«ÊÇ
+    //int last_seq=0;//ÉÏ¸ö°üµÄsequence
 
-    //å‡†å¤‡æ¥æ”¶çª—å£
+    //×¼±¸½ÓÊÕ´°¿Ú
     private Receiver_Window ReceiverWindow=new Receiver_Window(this.client);
 
-    /*æ„é€ å‡½æ•°*/
+    //Ìí¼Ótahoe²¿·Ö
+    int Next_seq=0;//Ï£ÍûÊÕµ½µÄseq
+    private Hashtable<Integer,TCP_PACKET>packets2=new Hashtable<>();
+
+    /*¹¹Ôìº¯Êı*/
     public TCP_Receiver() {
-        super();	//è°ƒç”¨è¶…ç±»æ„é€ å‡½æ•°
-        super.initTCP_Receiver(this);	//åˆå§‹åŒ–TCPæ¥æ”¶ç«¯
+        super();	//µ÷ÓÃ³¬Àà¹¹Ôìº¯Êı
+        super.initTCP_Receiver(this);	//³õÊ¼»¯TCP½ÓÊÕ¶Ë
         this.ReceiverWindow.init();
     }
 
     @Override
-    //æ¥æ”¶åˆ°æ•°æ®æŠ¥ï¼šæ£€æŸ¥æ ¡éªŒå’Œï¼Œè®¾ç½®å›å¤çš„ACKæŠ¥æ–‡æ®µ
+    //½ÓÊÕµ½Êı¾İ±¨£º¼ì²éĞ£ÑéºÍ£¬ÉèÖÃ»Ø¸´µÄACK±¨ÎÄ¶Î
     public void rdt_recv(TCP_PACKET recvPack) {
 
-        //æ£€æŸ¥æ ¡éªŒç ï¼Œç”ŸæˆACK
+        //¼ì²éĞ£ÑéÂë£¬Éú³ÉACK
         if(CheckSum.computeChkSum(recvPack) == recvPack.getTcpH().getTh_sum()) {
 /*
             int current_seq=recvPack.getTcpH().getTh_seq();
-            //ç”ŸæˆACKæŠ¥æ–‡æ®µï¼ˆè®¾ç½®ç¡®è®¤å·ï¼‰
+            //Éú³ÉACK±¨ÎÄ¶Î£¨ÉèÖÃÈ·ÈÏºÅ£©
             tcpH.setTh_ack(current_seq);
 
             ackPack = new TCP_PACKET(tcpH, tcpS, recvPack.getSourceAddr());
-            tcpH.setTh_sum(CheckSum.computeChkSum(ackPack));//è®¾ç½®å›å¤ackçš„checksum
-            //åŒ…æ²¡æœ‰å‡ºé”™ï¼Œçœ‹æ˜¯ä¸æ˜¯é‡å¤åŒ…,æ¥æ”¶æ–¹çš„ackå’Œå‘é€æ–¹çš„åŒ…seqæœ‰å…³
+            tcpH.setTh_sum(CheckSum.computeChkSum(ackPack));//ÉèÖÃ»Ø¸´ackµÄchecksum
+            //°üÃ»ÓĞ³ö´í£¬¿´ÊÇ²»ÊÇÖØ¸´°ü,½ÓÊÕ·½µÄackºÍ·¢ËÍ·½µÄ°üseqÓĞ¹Ø
             if(!(current_seq==last_seq)) {
-                //ä¸ç­‰äºï¼Œè¯´æ˜ä¸é‡å¤ï¼Œæ›´æ–°last_seqä¸ºå½“å‰çš„seq
+                //²»µÈÓÚ£¬ËµÃ÷²»ÖØ¸´£¬¸üĞÂlast_seqÎªµ±Ç°µÄseq
                 last_seq = current_seq;
 
-                //ä¸æ˜¯é”™åŒ…ï¼Œä¹Ÿä¸æ˜¯é‡å¤åŒ…ï¼Œäº¤ç»™æ¥æ”¶çª—å£å¤„ç†
+                //²»ÊÇ´í°ü£¬Ò²²»ÊÇÖØ¸´°ü£¬½»¸ø½ÓÊÕ´°¿Ú´¦Àí
                 ReceiverWindow.recvPacket(recvPack);
-                //å°†æ¥æ”¶åˆ°çš„æ­£ç¡®æœ‰åºçš„æ•°æ®æ’å…¥dataé˜Ÿåˆ—ï¼Œå‡†å¤‡äº¤ä»˜
+                //½«½ÓÊÕµ½µÄÕıÈ·ÓĞĞòµÄÊı¾İ²åÈëdata¶ÓÁĞ£¬×¼±¸½»¸¶
                 dataQueue.add(recvPack.getTcpS().getData());
                 sequence++;
             }
-            //å›å¤ACKæŠ¥æ–‡æ®µ
+            //»Ø¸´ACK±¨ÎÄ¶Î
             reply(ackPack);
         }else{
             System.out.println("Recieve Computed: "+CheckSum.computeChkSum(recvPack));
@@ -60,46 +65,67 @@ public class TCP_Receiver extends TCP_Receiver_ADT {
             tcpH.setTh_ack(last_seq);
             ackPack = new TCP_PACKET(tcpH, tcpS, recvPack.getSourceAddr());
             tcpH.setTh_sum(CheckSum.computeChkSum(ackPack));
-            //å›å¤ACKæŠ¥æ–‡æ®µ
+            //»Ø¸´ACK±¨ÎÄ¶Î
             reply(ackPack);*/
-            int ack;
-            ack=this.ReceiverWindow.recvPacket(recvPack);
-            if(ack>0){
+//            int ack;
+//            ack=this.ReceiverWindow.recvPacket(recvPack);
+//            if(ack>0){
+//                dataQueue.add(recvPack.getTcpS().getData());
+//                this.tcpH.setTh_ack(ack);
+//                this.ackPack=new TCP_PACKET(this.tcpH,this.tcpS,recvPack.getSourceAddr());
+//                this.tcpH.setTh_sum(CheckSum.computeChkSum(this.ackPack));
+//                reply(this.ackPack);
+//            }
+            int CurSeq = (recvPack.getTcpH().getTh_seq() - 1) / 100;
+            if (Next_seq == CurSeq) {
                 dataQueue.add(recvPack.getTcpS().getData());
-                this.tcpH.setTh_ack(ack);
-                this.ackPack=new TCP_PACKET(this.tcpH,this.tcpS,recvPack.getSourceAddr());
-                this.tcpH.setTh_sum(CheckSum.computeChkSum(this.ackPack));
-                reply(this.ackPack);
+                Next_seq++;
+                // ½«´°¿ÚÖĞCurSeqÖ®ºóÁ¬Ğø°üµÄÊı¾İ¼ÓÈëÊı¾İ¶ÓÁĞ
+                while(packets2.containsKey(Next_seq)){
+                    dataQueue.add(packets2.get(Next_seq).getTcpS().getData());
+                    packets2.remove(Next_seq); //´Ó½ÓÊÕ·½´°¿ÚÖĞÒÆ³ö
+                    Next_seq++;
+                }
+                //Ã¿20×éÊı¾İ½»¸¶Ò»´Î
+                if(dataQueue.size() >= 20)
+                    deliver_data();
+            } else {  // ÎŞĞò
+                if (!packets2.containsKey(CurSeq) && CurSeq > Next_seq)
+                    packets2.put(CurSeq, recvPack); // ¼ÓÈë½ÓÊÕ·½´°¿Ú
             }
         }
+        tcpH.setTh_ack((Next_seq - 1) * 100 + 1);//Éú³ÉACK±¨ÎÄ¶Î
+        ackPack = new TCP_PACKET(tcpH, tcpS, recvPack.getSourceAddr());
+        tcpH.setTh_sum(CheckSum.computeChkSum(ackPack));
+        reply(ackPack);
 
 //        System.out.println();
 //
-//        //äº¤ä»˜æ•°æ®ï¼ˆæ¯20ç»„æ•°æ®äº¤ä»˜ä¸€æ¬¡ï¼‰
+//        //½»¸¶Êı¾İ£¨Ã¿20×éÊı¾İ½»¸¶Ò»´Î£©
 //        if(dataQueue.size() == 20)
 //            deliver_data();
     }
 
     @Override
-    //äº¤ä»˜æ•°æ®ï¼ˆå°†æ•°æ®å†™å…¥æ–‡ä»¶ï¼‰ï¼›ä¸éœ€è¦ä¿®æ”¹
+    //½»¸¶Êı¾İ£¨½«Êı¾İĞ´ÈëÎÄ¼ş£©£»²»ĞèÒªĞŞ¸Ä
     public void deliver_data() {
-        //æ£€æŸ¥dataQueueï¼Œå°†æ•°æ®å†™å…¥æ–‡ä»¶
+        //¼ì²édataQueue£¬½«Êı¾İĞ´ÈëÎÄ¼ş
         File fw = new File("recvData.txt");
         BufferedWriter writer;
 
         try {
             writer = new BufferedWriter(new FileWriter(fw, true));
 
-            //å¾ªç¯æ£€æŸ¥dataé˜Ÿåˆ—ä¸­æ˜¯å¦æœ‰æ–°äº¤ä»˜æ•°æ®
+            //Ñ­»·¼ì²édata¶ÓÁĞÖĞÊÇ·ñÓĞĞÂ½»¸¶Êı¾İ
             while(!dataQueue.isEmpty()) {
                 int[] data = dataQueue.poll();
 
-                //å°†æ•°æ®å†™å…¥æ–‡ä»¶
+                //½«Êı¾İĞ´ÈëÎÄ¼ş
                 for(int i = 0; i < data.length; i++) {
                     writer.write(data[i] + "\n");
                 }
 
-                writer.flush();		//æ¸…ç©ºè¾“å‡ºç¼“å­˜
+                writer.flush();		//Çå¿ÕÊä³ö»º´æ
             }
             writer.close();
         } catch (IOException e) {
@@ -109,11 +135,11 @@ public class TCP_Receiver extends TCP_Receiver_ADT {
     }
 
     @Override
-    //å›å¤ACKæŠ¥æ–‡æ®µ
+    //»Ø¸´ACK±¨ÎÄ¶Î
     public void reply(TCP_PACKET replyPack) {
-        //è®¾ç½®é”™è¯¯æ§åˆ¶æ ‡å¿—
+        //ÉèÖÃ´íÎó¿ØÖÆ±êÖ¾
         tcpH.setTh_eflag((byte)7);	//eFlag = 4
-        //å‘é€æ•°æ®æŠ¥
+        //·¢ËÍÊı¾İ±¨
         client.send(replyPack);
     }
 

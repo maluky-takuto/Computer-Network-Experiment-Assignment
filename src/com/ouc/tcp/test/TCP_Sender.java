@@ -11,55 +11,55 @@ import com.ouc.tcp.tool.TCP_TOOL;
 
 public class TCP_Sender extends TCP_Sender_ADT {
 
-    private TCP_PACKET tcpPack;	//å¾…å‘é€çš„TCPæ•°æ®æŠ¥
+    private TCP_PACKET tcpPack;	//´ı·¢ËÍµÄTCPÊı¾İ±¨
     private volatile int flag = 4;
-    //æ·»åŠ 2ä¸ªå˜é‡ï¼Œå‡†å¤‡ä½¿ç”¨è®¡æ—¶å™¨
+    //Ìí¼Ó2¸ö±äÁ¿£¬×¼±¸Ê¹ÓÃ¼ÆÊ±Æ÷
 //    private UDT_RetransTask retrans_task;
 //    private UDT_Timer timer;
 
-    //å‡†å¤‡æ»‘åŠ¨çª—å£
+    //×¼±¸»¬¶¯´°¿Ú
     private Sender_Window SenderWindow = new Sender_Window(this.client);
 
-    /*æ„é€ å‡½æ•°*/
+    /*¹¹Ôìº¯Êı*/
     public TCP_Sender() {
-        super();	//è°ƒç”¨è¶…ç±»æ„é€ å‡½æ•°
-        super.initTCP_Sender(this);		//åˆå§‹åŒ–TCPå‘é€ç«¯
+        super();	//µ÷ÓÃ³¬Àà¹¹Ôìº¯Êı
+        super.initTCP_Sender(this);		//³õÊ¼»¯TCP·¢ËÍ¶Ë
         this.SenderWindow.init();
     }
 
     @Override
-    //å¯é å‘é€ï¼ˆåº”ç”¨å±‚è°ƒç”¨ï¼‰ï¼šå°è£…åº”ç”¨å±‚æ•°æ®ï¼Œäº§ç”ŸTCPæ•°æ®æŠ¥ï¼›éœ€è¦ä¿®æ”¹
+    //¿É¿¿·¢ËÍ£¨Ó¦ÓÃ²ãµ÷ÓÃ£©£º·â×°Ó¦ÓÃ²ãÊı¾İ£¬²úÉúTCPÊı¾İ±¨£»ĞèÒªĞŞ¸Ä
     public void rdt_send(int dataIndex, int[] appData) {
 
 
 
-        //ç”ŸæˆTCPæ•°æ®æŠ¥ï¼ˆè®¾ç½®åºå·å’Œæ•°æ®å­—æ®µ/æ ¡éªŒå’Œ),æ³¨æ„æ‰“åŒ…çš„é¡ºåº
-        tcpH.setTh_seq(dataIndex * appData.length + 1);//åŒ…åºå·è®¾ç½®ä¸ºå­—èŠ‚æµå·ï¼š
+        //Éú³ÉTCPÊı¾İ±¨£¨ÉèÖÃĞòºÅºÍÊı¾İ×Ö¶Î/Ğ£ÑéºÍ),×¢Òâ´ò°üµÄË³Ğò
+        tcpH.setTh_seq(dataIndex * appData.length + 1);//°üĞòºÅÉèÖÃÎª×Ö½ÚÁ÷ºÅ£º
         tcpS.setData(appData);
         tcpPack = new TCP_PACKET(tcpH, tcpS, destinAddr);
-        //æ›´æ–°å¸¦æœ‰checksumçš„TCP æŠ¥æ–‡å¤´
+        //¸üĞÂ´øÓĞchecksumµÄTCP ±¨ÎÄÍ·
         tcpH.setTh_sum(CheckSum.computeChkSum(tcpPack));
         tcpPack.setTcpH(tcpH);
 
-        //å‘é€TCPæ•°æ®æŠ¥ï¼Œ3.0ï¼Œæ·»åŠ è®¡æ—¶å™¨
+        //·¢ËÍTCPÊı¾İ±¨£¬3.0£¬Ìí¼Ó¼ÆÊ±Æ÷
 //        retrans_task=new UDT_RetransTask(client,tcpPack);
 //        timer=new UDT_Timer();
 //        timer.schedule(retrans_task,2000,3000);
 //        udt_send(tcpPack);
 //        flag = 0;
 
-        //å‘é€TCPæ•°æ®æŠ¥,SRç‰ˆï¼Œç”¨senderwindowæ‰˜ç®¡
-        //å¦‚æœçª—å£ä¸èƒ½åŠ¨
+        //·¢ËÍTCPÊı¾İ±¨,SR°æ£¬ÓÃsenderwindowÍĞ¹Ü
+        //Èç¹û´°¿Ú²»ÄÜ¶¯
 
-        if(this.SenderWindow.isFull()){//æ»¡äº†
+        if(this.SenderWindow.isFull()){//ÂúÁË
             System.out.println("**sender**window**is**wait**");
             flag = 0;
         }
-        //ç­‰å¾…ACKæŠ¥æ–‡
+        //µÈ´ıACK±¨ÎÄ
         //waitACK();
         while (flag==0);
 
-        //å‘åŒ…ï¼Œå…ˆå°†åŒ…åŠ å…¥çª—å£
+        //·¢°ü£¬ÏÈ½«°ü¼ÓÈë´°¿Ú
         try {
             this.SenderWindow.TakePacket(this.tcpPack.clone());
         } catch (CloneNotSupportedException e) {
@@ -69,33 +69,33 @@ public class TCP_Sender extends TCP_Sender_ADT {
     }
 
     @Override
-    //ä¸å¯é å‘é€ï¼šå°†æ‰“åŒ…å¥½çš„TCPæ•°æ®æŠ¥é€šè¿‡ä¸å¯é ä¼ è¾“ä¿¡é“å‘é€ï¼›ä»…éœ€ä¿®æ”¹é”™è¯¯æ ‡å¿—
+    //²»¿É¿¿·¢ËÍ£º½«´ò°üºÃµÄTCPÊı¾İ±¨Í¨¹ı²»¿É¿¿´«ÊäĞÅµÀ·¢ËÍ£»½öĞèĞŞ¸Ä´íÎó±êÖ¾
     public void udt_send(TCP_PACKET stcpPack) {
-        //è®¾ç½®é”™è¯¯æ§åˆ¶æ ‡å¿—
-        tcpH.setTh_eflag((byte)7);  //eFlag =4,é”™è¯¯å’Œä¸¢å¤±
+        //ÉèÖÃ´íÎó¿ØÖÆ±êÖ¾
+        tcpH.setTh_eflag((byte)7);  //eFlag =4,´íÎóºÍ¶ªÊ§
         //System.out.println("to send: "+stcpPack.getTcpH().getTh_seq());
-        //å‘é€æ•°æ®æŠ¥
+        //·¢ËÍÊı¾İ±¨
         client.send(stcpPack);
     }
 
 
-    //éœ€è¦ä¿®æ”¹
+    //ĞèÒªĞŞ¸Ä
     public void waitACK(TCP_PACKET packet) {
         int currentAck=packet.getTcpH().getTh_ack();
-        /*int currentAck = ackQueue.poll();//ä»acké˜Ÿåˆ—ä¸­æ‹¿å‡ºæ¥*/
+        /*int currentAck = ackQueue.poll();//´Óack¶ÓÁĞÖĞÄÃ³öÀ´*/
         // System.out.println("CurrentAck: "+currentAck);
 
-        if (CheckSum.computeChkSum(packet)==packet.getTcpH().getTh_sum()) {//è¯´æ˜æ”¶åˆ°ackåŒ…äº†
-            this.SenderWindow.recvAck(currentAck);//äº¤ç»™çª—å£å¤„ç†
+        if (CheckSum.computeChkSum(packet)==packet.getTcpH().getTh_sum()) {//ËµÃ÷ÊÕµ½ack°üÁË
+            this.SenderWindow.recvAck(currentAck);//½»¸ø´°¿Ú´¦Àí
             if(!this.SenderWindow.isFull()) {
-                flag=1;//çª—å£ä¸æ»¡ï¼Œå°±å¯ä»¥å‘æ–°åŒ…
+                flag=1;//´°¿Ú²»Âú£¬¾Í¿ÉÒÔ·¢ĞÂ°ü
             }else{
                 flag=0;
             }
 //                System.out.println("Clear: " + tcpPack.getTcpH().getTh_seq());
             //timer.cancel();
             //break;
-        } /*else {//é‡å‘å¹¶å†æ¬¡ç­‰å¾…ackæŠ¥æ–‡
+        } /*else {//ÖØ·¢²¢ÔÙ´ÎµÈ´ıack±¨ÎÄ
             System.out.println("Retransmit: " + tcpPack.getTcpH().getTh_seq());
             udt_send(tcpPack);
 
@@ -105,12 +105,12 @@ public class TCP_Sender extends TCP_Sender_ADT {
     }
 
     @Override
-    //æ¥æ”¶åˆ°ACKæŠ¥æ–‡ï¼šæ£€æŸ¥æ ¡éªŒå’Œï¼Œå°†ç¡®è®¤å·æ’å…¥acké˜Ÿåˆ—;NACKçš„ç¡®è®¤å·ä¸ºï¼1ï¼›ä¸éœ€è¦ä¿®æ”¹
+    //½ÓÊÕµ½ACK±¨ÎÄ£º¼ì²éĞ£ÑéºÍ£¬½«È·ÈÏºÅ²åÈëack¶ÓÁĞ;NACKµÄÈ·ÈÏºÅÎª£­1£»²»ĞèÒªĞŞ¸Ä
     public void recv(TCP_PACKET recvPack) {
-        System.out.println("Receive ACK Numberï¼š "+ recvPack.getTcpH().getTh_ack());
+        System.out.println("Receive ACK Number£º "+ recvPack.getTcpH().getTh_ack());
         ackQueue.add(recvPack.getTcpH().getTh_ack());
         System.out.println();
-        //å¤„ç†ACKæŠ¥æ–‡
+        //´¦ÀíACK±¨ÎÄ
         waitACK(recvPack);
     }
 
