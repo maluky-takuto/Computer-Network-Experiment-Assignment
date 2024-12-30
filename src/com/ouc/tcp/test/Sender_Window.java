@@ -7,32 +7,42 @@ import com.ouc.tcp.client.UDT_Timer;
 import javax.swing.undo.CannotUndoException;
 import java.util.Hashtable;
 
+import com.ouc.tcp.client.Client;
+import com.ouc.tcp.client.UDT_RetransTask;
+import com.ouc.tcp.client.UDT_Timer;
+import com.ouc.tcp.message.TCP_PACKET;
+
+import java.util.Hashtable;
+import java.util.Timer;
+import java.util.TimerTask;
+
 public class Sender_Window {
     private Client client;
     private int SenderWinSize = 64; //发送方窗口大小
 
-    private mypacket[] packets=new mypacket[2*SenderWinSize];
+    //private mypacket[] packets=new mypacket[2*SenderWinSize];
 
     private int offset=0;
 
     //新增Tahoe,reno所需的变量
-    int ssthresh=16;//门限
-    int cwnd=1;//拥塞窗口
-    int front_ack_seq=-1;//上一次ack包的seq,快重传要用
-    int repeat_ack=0;//重复多少次
-    int CA_num=0;//拥塞避免时收到的ack数
-    private Hashtable<Integer,TCP_PACKET> packets2=new Hashtable<>();
-    private Hashtable<Integer,UDT_Timer> timer2=new Hashtable<>();
+    private Hashtable<Integer, TCP_PACKET> packets = new Hashtable<>(); // 存储窗口内的数据包
+    private Hashtable<Integer, UDT_Timer> timer = new Hashtable<>(); // 存储每个数据包的计时器
+    private volatile int ssthresh = 16;  //门限值
+    public int cwnd = 1;  //拥塞窗口
+    private int front_ack_seq = -1; //上一次收到ACK包的seq
+    private int repeat_num = 0; //重复的Ack数
+    private int count_ack = 0; // 进入拥塞避免状态时收到的ACK数，记录一个RTT收到ACK的进度
+
 
     public Sender_Window(Client client) {
         this.client = client;
     }
 
-    public void init(){
-        for(int i=0;i<=2*SenderWinSize-1;i++){
-            this.packets[i]=new mypacket();
-        }
-    }
+//    public void init(){
+//        for(int i=0;i<=2*SenderWinSize-1;i++){
+//            this.packets[i]=new mypacket();
+//        }
+//    }
 
     public boolean isFull(){//是不是放满数据包
 //        for(int i=0;i<=SenderWinSize-1;i++){
@@ -41,12 +51,12 @@ public class Sender_Window {
 //            }
 //        }
 //        return true;
-        return this.cwnd<=packets2.size();
+        return this.cwnd<=packets.size();
     }
 
-    public boolean isWait() {
-        return this.packets[0].getPacket()!=null && !this.packets[0].isAcked();
-    }
+//    public boolean isWait() {
+//        return this.packets[0].getPacket()!=null && !this.packets[0].isAcked();
+//    }
 
 
     public void TakePacket(TCP_PACKET packet) {
@@ -58,12 +68,12 @@ public class Sender_Window {
 //            this.packets[temp_seq]=new mypacket(packet,timer);
 //            timer.schedule(new UDT_RetransTask(client,packet),3000,3000 );
         int Current_seq=(packet.getTcpH().getTh_seq()-1)/100;
-        timer2.put(Current_seq,new UDT_Timer());
-        timer2.get(Current_seq).schedule(new TahoeRetran(client,packet),3000,3000);
-        packets2.put(Current_seq,packet);
+        timer.put(Current_seq,new UDT_Timer());
+        timer.get(Current_seq).schedule(new TahoeRetran(client,packet),3000,3000);
+        packets.put(Current_seq,packet);
         }
 
-    public void recvAck(int Current_Ack) {//把ack拿过来
+    public void recvAck(int CurSeq) {//把ack拿过来
         /*int temp_ack=(Current_Ack-1)/100;
         temp_ack-=offset;
         //在窗口内
@@ -91,49 +101,49 @@ public class Sender_Window {
             }
             offset+=baseline;//增加偏移量
         }*/
-        if (Current_Ack != this.front_ack_seq) { //新到来的ACK包
-            for (int i = this.front_ack_seq + 1; i <= Current_Ack; i++) {
-                packets2.remove(i);
-                if (timer2.containsKey(i)) {
-                    timer2.get(i).cancel();
-                    timer2.remove(i);
+        if (CurSeq != front_ack_seq) { //新到来的ACK包
+            for (int i = front_ack_seq + 1; i <= CurSeq; i++) {
+                packets.remove(i);
+                if (timer.containsKey(i)) {
+                    timer.get(i).cancel();
+                    timer.remove(i);
                 }
             }
-            this.front_ack_seq = Current_Ack;
-            this.repeat_ack = 0;
+            front_ack_seq = CurSeq;
+            repeat_num = 0;
             if (cwnd < ssthresh) { //慢开始算法
-                System.out.println("----------执行慢开始算法----------");
-                System.out.println("根据慢开始算法，每收到一个ACK就将cwnd增加1，因此cwnd由" + cwnd + "增长为" + (cwnd + 1));
+                System.out.println("***********慢开始***********");
+                System.out.println(cwnd + "->" + (cwnd + 1));
                 System.out.println();
                 cwnd++;
             } else { //拥塞避免
-                this.CA_num++;
-                System.out.println("----------执行拥塞避免算法----------");
-                System.out.println("根据拥塞避免算法，每经过一个RTT才把cwnd增加1，此时cwnd为" + cwnd + "，拥塞避免RTT的进度为" + this.CA_num);
-                System.out.println("只有当RTT进度达到" + cwnd + "时才把cwnd增加1\n");
-                if (this.CA_num >= cwnd) {  // 收到一个RTT内ACK数量超过 cwnd
-                    this.CA_num -= cwnd;  // 重置RTT进度
-                    System.out.println("此时RTT进度达到cwnd，cwnd需要增加1，因此cwnd由" + cwnd + "增长为" + (cwnd + 1));
+                count_ack++;
+                System.out.println("***********拥塞避免***********");
+                System.out.println("cwnd:" + cwnd + "  RTT进度" + count_ack);
+                // 如果一个RTT内ACK数量超过 cwnd
+                if (count_ack >= cwnd) {
+                    count_ack -= cwnd;//重置RTT进度
+                    System.out.println("加法增大:" + cwnd + "->" + (cwnd + 1));
                     System.out.println();
                     cwnd++;
                 }
             }
-        } else { //如果是重复的ACK包
-            this.repeat_ack++;
-            if(this.repeat_ack >= 3){ //重复收到3次
-                TCP_PACKET packet = packets2.get(Current_Ack + 1);
+        } else { //如果是重复包
+            repeat_num++;
+            if(repeat_num >= 3){ //重复3次，要执行快恢复
+                TCP_PACKET packet = packets.get(CurSeq + 1);
                 if (packet != null) {
-                    System.out.println("----------执行重传----------");
+                    System.out.println("***********快恢复***********");
                     client.send(packet);
-                    timer2.get(Current_Ack + 1).cancel();
-                    timer2.put(Current_Ack + 1, new UDT_Timer());
-                    timer2.get(Current_Ack + 1).schedule(new TahoeRetran(client, packet), 3000, 3000);
+                    timer.get(CurSeq + 1).cancel();
+                    timer.put(CurSeq + 1, new UDT_Timer());
+                    timer.get(CurSeq + 1).schedule(new TahoeRetran(client, packet), 3000, 3000);
                 }
-                System.out.println("根据快重传算法，应该将cwnd由" + cwnd + "变为" + 1);
-                System.out.println("ssthresh应该变为拥塞窗口的一半，因此ssthresh由" + ssthresh + "变为" + Math.max(cwnd / 2, 2));
+                System.out.println("cwnd:" + cwnd + "->" + (Math.max(cwnd / 2, 2) + 3));
+                System.out.println("ssthresh:" + ssthresh + "->" + Math.max(cwnd / 2, 2));
                 System.out.println();
                 ssthresh = Math.max(cwnd / 2, 2);
-                cwnd = 1;
+                cwnd = ssthresh + 3;
             }
         }
     }
@@ -147,9 +157,9 @@ public class Sender_Window {
         }
         @Override
         public void run() {
-            System.out.println("！！！！！！！！！！超时重传！！！！！！！！！！");
-            System.out.println("超时重传应当将ssthresh设定为拥塞窗口的一半，因此ssthresh由" + ssthresh + "变为" + Math.max(cwnd / 2, 2));
-            System.out.println("\n将cwnd变为1\n");
+            System.out.println("***********超时重传***********");
+            System.out.println("ssthresh:" + ssthresh + "->" + Math.max(cwnd / 2, 2));
+            System.out.println("\ncwnd变为1\n");
             ssthresh = Math.max(cwnd / 2, 2);
             cwnd = 1;
             super.run();
