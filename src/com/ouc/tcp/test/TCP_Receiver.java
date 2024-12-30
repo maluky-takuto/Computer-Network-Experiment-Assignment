@@ -22,14 +22,14 @@ public class TCP_Receiver extends TCP_Receiver_ADT {
     private Receiver_Window ReceiverWindow=new Receiver_Window(this.client);
 
     //添加tahoe部分
-    int Next_seq=0;//希望收到的seq
-    private Hashtable<Integer,TCP_PACKET>packets2=new Hashtable<>();
+    int NextSeq=0;//希望收到的seq
+    private Hashtable<Integer,TCP_PACKET>packets=new Hashtable<>();
 
     /*构造函数*/
     public TCP_Receiver() {
         super();	//调用超类构造函数
         super.initTCP_Receiver(this);	//初始化TCP接收端
-        this.ReceiverWindow.init();
+        //this.ReceiverWindow.init();
     }
 
     @Override
@@ -77,24 +77,25 @@ public class TCP_Receiver extends TCP_Receiver_ADT {
 //                reply(this.ackPack);
 //            }
             int CurSeq = (recvPack.getTcpH().getTh_seq() - 1) / 100;
-            if (Next_seq == CurSeq) {
+            if (NextSeq == CurSeq) {
                 dataQueue.add(recvPack.getTcpS().getData());
-                Next_seq++;
-                // 将窗口中CurSeq之后连续包的数据加入数据队列
-                while(packets2.containsKey(Next_seq)){
-                    dataQueue.add(packets2.get(Next_seq).getTcpS().getData());
-                    packets2.remove(Next_seq); //从接收方窗口中移出
-                    Next_seq++;
+                NextSeq++;
+                //将窗口中CurSeq之后连续包的数据加入数据队列
+                while(packets.containsKey(NextSeq)){
+                    dataQueue.add(packets.get(NextSeq).getTcpS().getData());
+                    packets.remove(NextSeq);
+                    NextSeq++;
                 }
                 //每20组数据交付一次
                 if(dataQueue.size() >= 20)
                     deliver_data();
-            } else {  // 无序
-                if (!packets2.containsKey(CurSeq) && CurSeq > Next_seq)
-                    packets2.put(CurSeq, recvPack); // 加入接收方窗口
+                //无序，不管
+            } else {
+                if (!packets.containsKey(CurSeq) && CurSeq > NextSeq)
+                    packets.put(CurSeq, recvPack); // 加入接收方窗口
             }
         }
-        tcpH.setTh_ack((Next_seq - 1) * 100 + 1);//生成ACK报文段
+        tcpH.setTh_ack((NextSeq - 1) * 100 + 1);//生成ACK报文段
         ackPack = new TCP_PACKET(tcpH, tcpS, recvPack.getSourceAddr());
         tcpH.setTh_sum(CheckSum.computeChkSum(ackPack));
         reply(ackPack);
@@ -129,7 +130,6 @@ public class TCP_Receiver extends TCP_Receiver_ADT {
             }
             writer.close();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }

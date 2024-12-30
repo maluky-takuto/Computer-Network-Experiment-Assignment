@@ -9,10 +9,13 @@ import com.ouc.tcp.client.UDT_Timer;
 import com.ouc.tcp.message.*;
 import com.ouc.tcp.tool.TCP_TOOL;
 
+import com.ouc.tcp.client.TCP_Sender_ADT;
+import com.ouc.tcp.message.*;
+
 public class TCP_Sender extends TCP_Sender_ADT {
 
     private TCP_PACKET tcpPack;	//待发送的TCP数据报
-    private volatile int flag = 4;
+    private volatile int flag = 1;
     //添加2个变量，准备使用计时器
 //    private UDT_RetransTask retrans_task;
 //    private UDT_Timer timer;
@@ -24,15 +27,12 @@ public class TCP_Sender extends TCP_Sender_ADT {
     public TCP_Sender() {
         super();	//调用超类构造函数
         super.initTCP_Sender(this);		//初始化TCP发送端
-        this.SenderWindow.init();
+        //this.SenderWindow.init();
     }
 
     @Override
     //可靠发送（应用层调用）：封装应用层数据，产生TCP数据报；需要修改
     public void rdt_send(int dataIndex, int[] appData) {
-
-
-
         //生成TCP数据报（设置序号和数据字段/校验和),注意打包的顺序
         tcpH.setTh_seq(dataIndex * appData.length + 1);//包序号设置为字节流号：
         tcpS.setData(appData);
@@ -52,7 +52,7 @@ public class TCP_Sender extends TCP_Sender_ADT {
         //如果窗口不能动
 
         if(this.SenderWindow.isFull()){//满了
-            System.out.println("**sender**window**is**wait**");
+            System.out.println("**sender**window**is**full**");
             flag = 0;
         }
         //等待ACK报文
@@ -107,11 +107,19 @@ public class TCP_Sender extends TCP_Sender_ADT {
     @Override
     //接收到ACK报文：检查校验和，将确认号插入ack队列;NACK的确认号为－1；不需要修改
     public void recv(TCP_PACKET recvPack) {
-        System.out.println("Receive ACK Number： "+ recvPack.getTcpH().getTh_ack());
-        ackQueue.add(recvPack.getTcpH().getTh_ack());
-        System.out.println();
-        //处理ACK报文
-        waitACK(recvPack);
+//        System.out.println("Receive ACK Number： "+ recvPack.getTcpH().getTh_ack());
+//        ackQueue.add(recvPack.getTcpH().getTh_ack());
+//        System.out.println();
+//        //处理ACK报文
+//        waitACK(recvPack);
+        // 检查校验和
+        if (CheckSum.computeChkSum(recvPack) == recvPack.getTcpH().getTh_sum()) {
+            System.out.println("Receive ACK Number： "+ recvPack.getTcpH().getTh_ack());
+            this.SenderWindow.recvAck((recvPack.getTcpH().getTh_ack() - 1) / 100);
+            if (!this.SenderWindow.isFull()) {
+                flag = 1;
+            }
+        }
     }
 
     @Override

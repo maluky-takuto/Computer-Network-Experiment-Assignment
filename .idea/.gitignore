@@ -6,3 +6,24 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+<code class="language-plaintext hljs" id="code_id_0"># 忽略编译生成的 class 文件
+*.class
+
+# 忽略输出目录
+/bin/
+/out/
+
+# 忽略 IDE 的配置文件
+.idea/
+/*.iml
+*.hprof
+
+# 忽略 Java 依赖的 Maven 文件
+target/
+*.jar
+*.war
+*.ear
+
+# 忽略日志文件
+*.log
+</code>
